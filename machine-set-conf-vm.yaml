@@ -25,12 +25,15 @@ spec:
       metadata: {}
       providerSpec:
         value:
-          acceleratedNetworking: true
+          # Disabled: DC-series VMs for confidential computing do not support accelerated networking
+          acceleratedNetworking: false
           apiVersion: machine.openshift.io/v1beta1
           credentialsSecret:
             name: azure-cloud-credentials
             namespace: openshift-machine-api
           diagnostics: {}
+          # Required for Confidential Computing: Use a custom image compatible with confidential VMs
+          # Image must support AMD SEV-SNP and be configured for confidential computing
           image:
             offer: ""
             publisher: ""
@@ -48,19 +51,31 @@ spec:
             managedDisk:
               securityProfile:
                 diskEncryptionSet: {}
+                # Required for Confidential VM: VMGuestStateOnly encrypts the VM guest state
+                securityEncryptionType: VMGuestStateOnly
               storageAccountType: Premium_LRS
             osType: Linux
           publicIP: false
           publicLoadBalancer: afrosi-test-h96rn
           resourceGroup: afrosi-test-h96rn-rg
+          # Required for Confidential Computing: Configure VM security profile
           securityProfile:
             settings:
-              securityType: ""
+              confidentialVM:
+                uefiSettings:
+                  # Enable Secure Boot for trusted boot chain
+                  secureBoot: Enabled
+                  # Enable vTPM for attestation and key protection
+                  virtualizedTrustedPlatformModule: Enabled
+              # Required: Set security type to ConfidentialVM
+              securityType: ConfidentialVM
           subnet: afrosi-test-h96rn-worker-subnet
+          # Secret containing ignition config with registration server URL
+          # Created by create-machineset.sh script
           userDataSecret:
             name: conf-ignition-secret
-          vmSize: Standard_D4s_v3
+          # Required for Confidential Computing: Use DC-series VM size (DCadsv5 or DCasv5)
+          # Supports AMD SEV-SNP confidential computing technology
+          vmSize: Standard_DC4ads_v5
           vnet: afrosi-test-h96rn-vnet
           zone: "1"
-status:
-  observedGeneration: 2
