@@ -1,0 +1,66 @@
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  labels:
+    machine.openshift.io/cluster-api-cluster: afrosi-test-h96rn
+    machine.openshift.io/cluster-api-machine-role: worker
+    machine.openshift.io/cluster-api-machine-type: worker
+  name: machinset-conf-nodes
+  namespace: openshift-machine-api
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: afrosi-test-h96rn
+      machine.openshift.io/cluster-api-machineset: afrosi-test-h96rn-worker-germanywestcentral1
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: afrosi-test-h96rn
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: worker
+        machine.openshift.io/cluster-api-machineset: afrosi-test-h96rn-worker-germanywestcentral1
+    spec:
+      lifecycleHooks: {}
+      metadata: {}
+      providerSpec:
+        value:
+          acceleratedNetworking: true
+          apiVersion: machine.openshift.io/v1beta1
+          credentialsSecret:
+            name: azure-cloud-credentials
+            namespace: openshift-machine-api
+          diagnostics: {}
+          image:
+            offer: ""
+            publisher: ""
+            resourceID: /resourceGroups/afrosi_group/providers/Microsoft.Compute/galleries/afrosi_gallery/images/rhcos-9.6.20260309-0-azure.x86_64/versions/0.1.0
+            sku: ""
+            version: ""
+          kind: AzureMachineProviderSpec
+          location: germanywestcentral
+          managedIdentity: afrosi-test-h96rn-identity
+          metadata: {}
+          networkResourceGroup: afrosi-test-h96rn-rg
+          osDisk:
+            diskSettings: {}
+            diskSizeGB: 128
+            managedDisk:
+              securityProfile:
+                diskEncryptionSet: {}
+              storageAccountType: Premium_LRS
+            osType: Linux
+          publicIP: false
+          publicLoadBalancer: afrosi-test-h96rn
+          resourceGroup: afrosi-test-h96rn-rg
+          securityProfile:
+            settings:
+              securityType: ""
+          subnet: afrosi-test-h96rn-worker-subnet
+          userDataSecret:
+            name: conf-ignition-secret
+          vmSize: Standard_D4s_v3
+          vnet: afrosi-test-h96rn-vnet
+          zone: "1"
+status:
+  observedGeneration: 2

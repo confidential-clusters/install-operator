@@ -14,3 +14,13 @@ Use the script to publish the VHD image under a user name and create the gallery
 ./load-image-azure.sh -u <user> -i <vhd-image> [-l <location>]
 ```
 The location defaults to `eastus` if not specified.
+
+### Create the machine set with the registration url 
+Get the url of the registration-server where the confidential cluster operator is installed:
+```console
+oc get route register-server -n confidential-clusters -o jsonpath='{.spec.host}'
+```
+Create the machine set with the url you retrieved from the previous command:
+```console
+./create-machineset.sh --registration-server register-server-confidential-clusters.apps.ci-ln-2br1qk2-1d09d.ci2.azure.devcluster.openshift.com
+```
