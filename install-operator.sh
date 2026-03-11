@@ -8,8 +8,13 @@ oc get catalogsource  -n openshift-marketplace cocl-workspace-test
 
 oc apply -f namespace.yaml
 oc apply -f subscription.yaml
+oc apply -f scc.yaml
 
 # Installation of the operator
+echo "Waiting for OLM to create the deployment resource..."
+until oc get deployment confidential-cluster-operator -n confidential-clusters &> /dev/null; do
+    sleep 1
+done
 oc wait --for=condition=Available deployment/confidential-cluster-operator -n confidential-clusters --timeout=300s
 
 # Populate the CR
