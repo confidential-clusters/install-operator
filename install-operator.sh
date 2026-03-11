@@ -31,3 +31,6 @@ sed "s|<DOMAIN>|$domain|g" cluster-cr.yaml | \
 
 # Install the approved image
 oc apply -f approved-img.yaml
+oc expose svc kbs-service -n confidential-clusters
+oc expose svc register-server -n confidential-clusters
+oc get routes -n confidential-clusters
