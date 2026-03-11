@@ -1,0 +1,13 @@
+apiVersion: trusted-execution-clusters.io/v1alpha1
+kind: TrustedExecutionCluster
+metadata:
+  name: cocl-cluster
+  namespace: confidential-clusters
+spec:
+  pcrsComputeImage: quay.io/redhat-user-workloads/cocl-operator-tenant/compute-pcrs@sha256:dac12b9fe8bc92bbc79290cfaf311436e02ba7024692022d921a000ad5586797
+  registerServerImage: quay.io/redhat-user-workloads/cocl-operator-tenant/registration-server@sha256:3ca734f4dd86fa0d2a1c9da110e545dc7f4b1c0771434a14b2386310b9c257eb
+  trusteeImage: quay.io/trusted-execution-clusters/key-broker-service@sha256:1cf0ba784437f83e7f459e91f17615c9bf5c8068a0212b72fd9fc1babcbf6764
+  attestationKeyRegisterImage: quay.io/redhat-user-workloads/cocl-operator-tenant/attestation-key-register@sha256:88678999eb4c49dccda13325f1caed42af9f8c90235392c5547a8b759111443b
+  publicTrusteeAddr: kbs-service-confidential-clusters.<DOMAIN>
+  registerServerPort: 8000
+  trusteeKbsPort: 8080

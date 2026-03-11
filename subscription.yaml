@@ -1,0 +1,20 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cocl-og
+  namespace: confidential-clusters
+spec:
+  targetNamespaces:
+    - confidential-clusters
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cocl-sub
+  namespace: confidential-clusters
+spec:
+  channel: alpha
+  name: confidential-cluster-operator
+  source: cocl-workspace-test
+  sourceNamespace: openshift-marketplace
+

@@ -1,0 +1,8 @@
+apiVersion: trusted-execution-clusters.io/v1alpha1
+kind: ApprovedImage
+metadata:
+  name: fcos
+  namespace: confidential-clusters
+spec:
+  image: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:30644f13781dd766a4bb09c0c5cb38c704f75218117f1b67a1b95cdc74a310a0
+

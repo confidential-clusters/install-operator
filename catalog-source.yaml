@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: cocl-workspace-test
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: quay.io/redhat-user-workloads/cocl-operator-tenant/confidential-cluster-operator-fbc:on-pr-533a9e702a5539a29b37566195e2d707bd770ef2
+  displayName: "COCL Operator Workspace Test"
+  publisher: "Red Hat (Dev)"
