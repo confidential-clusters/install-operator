@@ -7,23 +7,28 @@ set -xe
 
 IMAGE=""
 USER=""
+LOCATION="eastus"
 FORCE=false
 
 usage() {
-    echo "Usage: $0 -i <image> -u <user> [-f]"
+    echo "Usage: $0 -i <image> -u <user> [-l <location>] [-f]"
     echo "  -i    Image file (VHD) to upload"
     echo "  -u    User name for resource naming"
+    echo "  -l    Azure location (default: eastus)"
     echo "  -f    Force overwrite of existing blob"
     exit 1
 }
 
-while getopts "i:u:f" opt; do
+while getopts "i:u:l:f" opt; do
     case $opt in
         i)
             IMAGE="$OPTARG"
             ;;
         u)
             USER="$OPTARG"
+            ;;
+        l)
+            LOCATION="$OPTARG"
             ;;
         f)
             FORCE=true
@@ -57,7 +62,7 @@ AZURE_SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 
 if ! az group show --name $resource_group &>/dev/null; then
   echo "Creating resource group $resource_group..."
-  az group create --name $resource_group --location eastus
+  az group create --name $resource_group --location $LOCATION
 fi
 
 actual_storage_rg=$resource_group
@@ -68,7 +73,7 @@ if ! az storage account show --name $storage_account --resource-group $resource_
     actual_storage_rg=$existing_rg
   else
     echo "Creating storage account $storage_account..."
-    az storage account create --name $storage_account --resource-group $resource_group --location eastus --sku Standard_LRS
+    az storage account create --name $storage_account --resource-group $resource_group --location $LOCATION --sku Standard_LRS
   fi
 fi
 
@@ -80,7 +85,7 @@ fi
 
 if ! az sig show --gallery-name $compute_gallery --resource-group $resource_group &>/dev/null; then
   echo "Creating compute gallery $compute_gallery..."
-  az sig create --gallery-name $compute_gallery --resource-group $resource_group --location eastus
+  az sig create --gallery-name $compute_gallery --resource-group $resource_group --location $LOCATION
 fi
 
 blob_name=$(basename "$image")
@@ -117,6 +122,6 @@ echo "Creating image version $image_version..."
 az sig image-version create -g $resource_group -r $compute_gallery -i $image_definition -e $image_version \
   --managed-image /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$resource_group/providers/Microsoft.Compute/images/$managed_image_name \
   --replica-count 1 \
-  --target-regions eastus
+  --target-regions $LOCATION
 
 echo "IMAGE: /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$resource_group/providers/Microsoft.Compute/galleries/$compute_gallery/images/$image_definition/versions/$image_version"

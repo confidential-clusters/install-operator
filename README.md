@@ -11,5 +11,6 @@ The script `install-operator` creates the catalog entries for the operator, depl
 ## Load image on Azure
 Use the script to publish the VHD image under a user name and create the gallery
 ```console
-./load-image-azure.sh -u <user> -i <vhd-image>
+./load-image-azure.sh -u <user> -i <vhd-image> [-l <location>]
 ```
+The location defaults to `eastus` if not specified.
