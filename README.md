@@ -2,8 +2,10 @@
 
 This repository contains the helper scripts to install, deploy and test the Confidential Cluster Operator development release.
 
+The installation happens on 2 clusters, the first one where the operator is deployed and the second one is the target cluster where we want to create confidential nodes.
+
 ## Installation of the operator on the external cluster
-The script `install-operator` creates the catalog entries for the operator, deploys the operator in the `confidential-clusters` namespace, and it creates the routes for the required endpoint
+The script `install-operator` creates the catalog entries for the operator, deploys the operator in the `confidential-clusters` namespace, and it creates the routes for the required endpoints
 ```console
 ./install-operator.sh
 ```
@@ -16,6 +18,14 @@ Use the script to publish the VHD image under a user name and create the gallery
 The location defaults to `eastus` if not specified.
 
 ## Create a confidential MachineSet
+
+First, you need to apply the MachineConfiguration to point to the custom image:
+```console
+oc apply -f machine-config.yaml
+```
+
+Afterwards, we can create a machine set for confidential nodes using the script `create-machineset.sh`.
+
 This script creates a confidential computing MachineSet by:
 1. Creating an ignition secret with the registration server URL
 2. Converting an existing MachineSet to confidential computing configuration
@@ -32,12 +42,12 @@ The script will:
 - Set replicas to 0 for safety
 
 ### Usage
-First, get the registration server URL:
+First, get the registration server URL from the external cluster where the operator is installed:
 ```console
 oc get route register-server -n confidential-clusters -o jsonpath='{.spec.host}'
 ```
 
-Then create the confidential MachineSet:
+Then create the confidential MachineSet on the target cluster:
 ```console
 ./create-machineset.sh \
   --registration-server <registration-server-url> \
@@ -55,6 +65,8 @@ Example:
   --new-name machinset-conf-nodes \
   --image /resourceGroups/afrosi_group/providers/Microsoft.Compute/galleries/afrosi_gallery/images/rhcos-9.6.20260309-0-azure.x86_64/versions/0.1.0
 ```
+
+N.B For the image specification, you need to provide the path but withou the subscription, this will be prefixed by the machinset automatically.
 
 The script will create and apply the MachineSet. Scale up when ready:
 ```console
