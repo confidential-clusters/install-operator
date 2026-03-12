@@ -5,7 +5,11 @@ This repository contains the helper scripts to install, deploy and test the Conf
 The installation happens on 2 clusters, the first one where the operator is deployed and the second one is the target cluster where we want to create confidential nodes.
 
 ## Installation of the operator on the external cluster
-The script `install-operator` creates the catalog entries for the operator, deploys the operator in the `confidential-clusters` namespace, and it creates the routes for the required endpoints
+The `install-operator.sh` script sets up the Confidential Cluster Operator on an external cluster by first creating the catalog source in the OpenShift marketplace and then deploying the operator along with its required namespace and security context constraints. 
+
+After waiting for the operator deployment to become available, the script extracts the necessary container image references from the operator's cluster service version and uses them to populate and apply the custom resource configuration with the cluster's ingress domain. 
+
+Finally, it applies the approved image configuration and exposes the Key Broker Service and registration server as OpenShift routes, making them accessible for confidential node registration from the target cluster.
 ```console
 ./install-operator.sh
 ```
@@ -66,21 +70,10 @@ Example:
   --image /resourceGroups/afrosi_group/providers/Microsoft.Compute/galleries/afrosi_gallery/images/rhcos-9.6.20260309-0-azure.x86_64/versions/0.1.0
 ```
 
-N.B For the image specification, you need to provide the path but withou the subscription, this will be prefixed by the machinset automatically.
+N.B For the image specification, you need to provide the path but without the subscription, this will be prefixed by the machinset automatically.
 
 The script will create and apply the MachineSet. Scale up when ready:
 ```console
 oc scale machineset <new-machineset-name> -n openshift-machine-api --replicas=1
 ```
 
-## Alternative: Convert an existing MachineSet separately
-If you want to convert a MachineSet without creating the ignition secret (for testing or reusing an existing secret), use the standalone conversion script:
-
-```console
-./convert-to-confidential-machineset.sh --source <existing-machineset-name> --new-name <new-machineset-name> --image <image-resource-id> [--vm-size <vm-size>]
-```
-
-This generates a YAML file that you can review and apply manually:
-```console
-oc apply -f <new-machineset-name>.yaml
-```
