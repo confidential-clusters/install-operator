@@ -86,17 +86,18 @@ echo "[1/3] Checking ignition secret..."
 FILE=conf-node-ignition
 IGNITION_SECRET=conf-ignition-secret
 
-# Check if secret already exists
+# Delete secret if it already exists
 if oc get secret $IGNITION_SECRET -n $NAMESPACE &>/dev/null; then
-  echo "      Secret $IGNITION_SECRET already exists, skipping creation"
-else
-  echo "      Creating ignition secret with registration server: $REGISTRATION_SERVER"
-  oc get secret worker-user-data -n $NAMESPACE -o jsonpath='{.data.userData}' \
-    | base64 -d \
-    | jq --arg url "http://$REGISTRATION_SERVER/ignition-clevis-pin-trustee" '.ignition.config.merge = [{"source": $url}] + .ignition.config.merge' > $FILE
-  oc create secret generic $IGNITION_SECRET -n $NAMESPACE --from-file=userData=$FILE
-  echo "      Ignition secret created successfully"
+  echo "      Secret $IGNITION_SECRET already exists, deleting it"
+  oc delete secret $IGNITION_SECRET -n $NAMESPACE
 fi
+
+echo "      Creating ignition secret with registration server: $REGISTRATION_SERVER"
+oc get secret worker-user-data -n $NAMESPACE -o jsonpath='{.data.userData}' \
+  | base64 -d \
+  | jq --arg url "http://$REGISTRATION_SERVER/ignition-clevis-pin-trustee" '.ignition.config.merge = [{"source": $url}] + .ignition.config.merge' > $FILE
+oc create secret generic $IGNITION_SECRET -n $NAMESPACE --from-file=userData=$FILE
+echo "      Ignition secret created successfully"
 echo ""
 
 echo "[2/3] Converting MachineSet to confidential computing configuration..."
