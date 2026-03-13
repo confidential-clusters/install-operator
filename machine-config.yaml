@@ -1,0 +1,8 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata: 
+  labels: 
+    machineconfiguration.openshift.io/role: worker
+  name: 99-worker-custom-image
+spec: 
+  osImageURL: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:30644f13781dd766a4bb09c0c5cb38c704f75218117f1b67a1b95cdc74a310a0
