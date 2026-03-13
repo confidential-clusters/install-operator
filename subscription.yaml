@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
-  name: cocl-og
+  name: confidential-clusters-og
   namespace: confidential-clusters
 spec:
   targetNamespaces:
@@ -10,11 +10,10 @@ spec:
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: cocl-sub
+  name: confidential-clusters-sub
   namespace: confidential-clusters
 spec:
-  channel: alpha
+  channel: dev-preview
   name: confidential-cluster-operator
-  source: cocl-workspace-test
+  source: confidential-cluster-operator-dev-preview
   sourceNamespace: openshift-marketplace
-

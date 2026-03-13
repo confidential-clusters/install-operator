@@ -7,7 +7,7 @@ The installation happens on 2 clusters, the first one where the operator is depl
 ## Installation of the operator on the external cluster
 The `install-operator.sh` script sets up the Confidential Cluster Operator on an external cluster by first creating the catalog source in the OpenShift marketplace and then deploying the operator along with its required namespace and security context constraints. 
 
-After waiting for the operator deployment to become available, the script extracts the necessary container image references from the operator's cluster service version and uses them to populate and apply the custom resource configuration with the cluster's ingress domain. 
+After waiting for the operator deployment to become available, the script applies the custom resource configuration with the cluster's ingress domain.
 
 Finally, it applies the approved image configuration and exposes the Key Broker Service and registration server as OpenShift routes, making them accessible for confidential node registration from the target cluster.
 ```console
