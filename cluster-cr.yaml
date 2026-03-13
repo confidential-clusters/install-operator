@@ -1,13 +1,9 @@
 apiVersion: trusted-execution-clusters.io/v1alpha1
 kind: TrustedExecutionCluster
 metadata:
-  name: cocl-cluster
+  name: confidential-cluster
   namespace: confidential-clusters
 spec:
-  pcrsComputeImage: <COMPUTE-IMG>
-  registerServerImage: <REG-IMG>
-  trusteeImage: <TRUSTEE-IMG>
-  attestationKeyRegisterImage: <ATTEST-REG-IMG>
   publicTrusteeAddr: kbs-service-confidential-clusters.<DOMAIN>
   registerServerPort: 8000
   trusteeKbsPort: 8080
