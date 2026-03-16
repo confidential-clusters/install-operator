@@ -23,9 +23,22 @@ The location defaults to `eastus` if not specified.
 
 ## Create a confidential MachineSet
 
-First, you need to apply the MachineConfiguration to point to the custom image:
+First, pause the worker MachineConfigPool to prevent existing nodes from upgrading:
+```console
+oc patch mcp worker --type merge -p '{"spec":{"paused":true}}'
+```
+This keeps existing worker nodes on their current OS and keeps new confidential nodes on the custom OS (prevents future OS changes).
+
+Then apply the MachineConfiguration to point to the custom image:
 ```console
 oc apply -f machine-config.yaml
+```
+
+Verify the custom OS is in the desired config (this ensures it will be included in Ignition):
+```console
+# Check the desired rendered config includes the custom osImageURL
+RENDERED_CONFIG=$(oc get mcp worker -o jsonpath='{.spec.configuration.name}')
+oc get mc $RENDERED_CONFIG -o jsonpath='{.spec.osImageURL}{"\n"}'
 ```
 
 Afterwards, we can create a machine set for confidential nodes using the script `create-machineset.sh`.
