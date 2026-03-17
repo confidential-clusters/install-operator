@@ -24,6 +24,19 @@ sed "s|<DOMAIN>|$domain|g" cluster-cr.yaml | \
 
 # Install the approved image
 oc apply -f approved-img.yaml
+
+# Wait for kbs-service to exist
+echo "Waiting for kbs-service to be created..."
+until oc get svc kbs-service -n confidential-clusters &> /dev/null; do
+    sleep 1
+done
+
+# Wait for register-server to exist
+echo "Waiting for register-server to be created..."
+until oc get svc register-server -n confidential-clusters &> /dev/null; do
+    sleep 1
+done
+
 oc expose svc kbs-service -n confidential-clusters
 oc expose svc register-server -n confidential-clusters
 oc get routes -n confidential-clusters
