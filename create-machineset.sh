@@ -82,7 +82,30 @@ fi
 echo "Creating confidential MachineSet '$NEW_MACHINESET_NAME' from '$SOURCE_MACHINESET'..."
 echo ""
 
-echo "[1/3] Checking ignition secret..."
+echo "[1/4] Checking worker-user-data-cvm secret..."
+BASE_SECRET=worker-user-data-cvm
+CVM_IGNITION_FILE=worker-cvm-ignition
+
+# Delete secret if it already exists
+if oc get secret $BASE_SECRET -n $NAMESPACE &>/dev/null; then
+  echo "      Secret $BASE_SECRET already exists, deleting it"
+  oc delete secret $BASE_SECRET -n $NAMESPACE
+fi
+
+echo "      Creating secret $BASE_SECRET from worker-user-data..."
+echo "      This secret points to the worker-cvm MachineConfigPool configuration"
+
+# Create the secret by modifying worker-user-data to point to /config/worker-cvm
+oc get secret worker-user-data -n $NAMESPACE -o jsonpath='{.data.userData}' \
+  | base64 -d \
+  | sed 's|/config/worker"|/config/worker-cvm"|' > $CVM_IGNITION_FILE
+
+oc create secret generic $BASE_SECRET -n $NAMESPACE --from-file=userData=$CVM_IGNITION_FILE
+
+echo "      Secret $BASE_SECRET created successfully"
+echo ""
+
+echo "[2/4] Checking conf-ignition secret..."
 FILE=conf-node-ignition
 IGNITION_SECRET=conf-ignition-secret
 
@@ -93,14 +116,15 @@ if oc get secret $IGNITION_SECRET -n $NAMESPACE &>/dev/null; then
 fi
 
 echo "      Creating ignition secret with registration server: $REGISTRATION_SERVER"
-oc get secret worker-user-data -n $NAMESPACE -o jsonpath='{.data.userData}' \
+echo "      Using base secret: $BASE_SECRET"
+oc get secret $BASE_SECRET -n $NAMESPACE -o jsonpath='{.data.userData}' \
   | base64 -d \
   | jq --arg url "http://$REGISTRATION_SERVER/ignition-clevis-pin-trustee" '.ignition.config.merge = [{"source": $url}] + .ignition.config.merge' > $FILE
 oc create secret generic $IGNITION_SECRET -n $NAMESPACE --from-file=userData=$FILE
 echo "      Ignition secret created successfully"
 echo ""
 
-echo "[2/3] Converting MachineSet to confidential computing configuration..."
+echo "[3/4] Converting MachineSet to confidential computing configuration..."
 
 if ! oc get machineset "$SOURCE_MACHINESET" -n "$NAMESPACE" &>/dev/null; then
   echo "Error: MachineSet '$SOURCE_MACHINESET' not found in namespace '$NAMESPACE'"
@@ -118,10 +142,17 @@ oc get machineset "$SOURCE_MACHINESET" -n "$NAMESPACE" -o json | \
   # Update the name
   .metadata.name = $new_name |
 
-  # Update labels to reflect new machineset name
+  # Update labels to reflect new machineset name and CVM worker role
   .metadata.labels["machine.openshift.io/cluster-api-machineset"] = $new_name |
+  .metadata.labels["machine.openshift.io/cluster-api-machine-role"] = "worker-cvm" |
+  .metadata.labels["machine.openshift.io/cluster-api-machine-type"] = "worker-cvm" |
   .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $new_name |
   .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $new_name |
+  .spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-role"] = "worker-cvm" |
+  .spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-type"] = "worker-cvm" |
+
+  # Set node role label (applied to the Node object)
+  .spec.template.spec.metadata.labels["node-role.kubernetes.io/worker-cvm"] = "" |
 
   # Disable accelerated networking (not supported on DC-series VMs)
   .spec.template.spec.providerSpec.value.acceleratedNetworking = false |
@@ -157,5 +188,5 @@ oc get machineset "$SOURCE_MACHINESET" -n "$NAMESPACE" -o json | \
   .spec.replicas = 0
   ' | yq -P > "${NEW_MACHINESET_NAME}.yaml"
 
-echo "[3/3] Applying confidential MachineSet..."
+echo "[4/4] Applying confidential MachineSet..."
 oc apply -f "${NEW_MACHINESET_NAME}.yaml"

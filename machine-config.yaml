@@ -2,7 +2,25 @@ apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata: 
   labels: 
-    machineconfiguration.openshift.io/role: worker
-  name: 99-worker-custom-image
+    machineconfiguration.openshift.io/role: worker-cvm
+  name: 99-worker-cvm-image
 spec: 
   osImageURL: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:30644f13781dd766a4bb09c0c5cb38c704f75218117f1b67a1b95cdc74a310a0
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+  name: worker-cvm
+
+spec:
+  nodeSelector:
+    matchLabels:
+      node-role.kubernetes.io/worker-cvm: ""
+
+  machineConfigSelector:
+    matchExpressions:
+    - key: machineconfiguration.openshift.io/role
+      operator: In
+      values:
+      - worker
+      - worker-cvm
