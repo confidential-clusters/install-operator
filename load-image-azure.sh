@@ -124,4 +124,4 @@ az sig image-version create -g $resource_group -r $compute_gallery -i $image_def
   --replica-count 1 \
   --target-regions $LOCATION
 
-echo "IMAGE: /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$resource_group/providers/Microsoft.Compute/galleries/$compute_gallery/images/$image_definition/versions/$image_version"
+echo "IMAGE: /resourceGroups/$resource_group/providers/Microsoft.Compute/galleries/$compute_gallery/images/$image_definition/versions/$image_version"
