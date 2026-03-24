@@ -77,3 +77,37 @@ The script will create and apply the MachineSet. Scale up when ready:
 oc scale machineset <new-machineset-name> -n openshift-machine-api --replicas=1
 ```
 
+## Cleanup
+
+Use the `clean-operator.sh` script to clean up resources from both clusters.
+
+### Clean up operator from external cluster
+
+Switch to the external cluster where the operator is installed:
+```console
+export KUBECONFIG=/path/to/external-cluster-kubeconfig
+./clean-operator.sh --operator-cluster
+```
+
+This removes:
+- Routes (kbs-service, register-server)
+- Custom resources (ApprovedImage, TrustedExecutionCluster)
+- Subscription and CSV
+- OperatorGroup
+- SecurityContextConstraints
+- Namespace and CatalogSource
+
+### Clean up machinesets from target cluster
+
+Switch to the target cluster where machinesets are deployed:
+```console
+export KUBECONFIG=/path/to/target-cluster-kubeconfig
+./clean-operator.sh --target-cluster
+```
+
+This removes:
+- Confidential machinesets (scale down and delete)
+- Secret (`conf-ignition-secret`)
+- MachineConfig (`99-worker-custom-image`)
+- Temporary files
+
