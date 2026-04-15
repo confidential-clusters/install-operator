@@ -119,9 +119,17 @@ if ! az sig image-definition show -g $resource_group -r $compute_gallery -i $ima
 fi
 
 echo "Creating image version $image_version..."
+# Get the resource group's location to ensure it's included in target regions
+rg_location=$(az group show --name $resource_group --query location -o tsv)
+# If the desired location is different from the resource group location, include both
+if [ "$LOCATION" != "$rg_location" ]; then
+  target_regions="$rg_location $LOCATION"
+else
+  target_regions="$LOCATION"
+fi
 az sig image-version create -g $resource_group -r $compute_gallery -i $image_definition -e $image_version \
   --managed-image /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$resource_group/providers/Microsoft.Compute/images/$managed_image_name \
   --replica-count 1 \
-  --target-regions $LOCATION
+  --target-regions $target_regions
 
 echo "IMAGE: /resourceGroups/$resource_group/providers/Microsoft.Compute/galleries/$compute_gallery/images/$image_definition/versions/$image_version"
