@@ -21,6 +21,28 @@ Use the script to publish the VHD image under a user name and create the gallery
 ```
 The location defaults to `eastus` if not specified.
 
+> **Note:** The image must be uploaded to the **same Azure region** as your target cluster.
+> Azure Compute Gallery images are regional resources and cannot be referenced across regions.
+> Uploading to the wrong region will cause MachineSet provisioning to fail when the nodes try to pull the image.
+
+To find the region of your target cluster, run the following against it:
+```console
+oc get machineset -n openshift-machine-api \
+  -o jsonpath='{.items[0].spec.template.spec.providerSpec.value.location}'
+```
+
+Alternatively, you can retrieve it from the cluster infrastructure object:
+```console
+oc get infrastructure cluster \
+  -o jsonpath='{.status.platformStatus.azure.resourceGroupName}' | \
+  xargs -I{} az group show --name {} --query location -o tsv
+```
+
+Pass the resulting location to the script with the `-l` flag, for example:
+```console
+./load-image-azure.sh -u <user> -i <vhd-image> -l germanywestcentral
+```
+
 ## Create a confidential MachineSet
 
 First, you need to apply the MachineConfiguration to point to the custom image:
