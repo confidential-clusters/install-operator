@@ -2,6 +2,17 @@
 
 set -e
 
+# shellcheck source=utils.sh
+source "$(dirname "$0")/utils.sh"
+
+# Check prerequisites
+require_cmds oc
+
+if ! oc whoami &>/dev/null; then
+    echo "Error: not connected to any cluster. Please set KUBECONFIG or login with 'oc login'." >&2
+    exit 1
+fi
+
 # Creation of the catalog for the operator
 oc apply -f catalog-source.yaml
 oc get catalogsource  -n openshift-marketplace confidential-cluster-operator-dev-preview

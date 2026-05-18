@@ -2,6 +2,9 @@
 
 set -e
 
+# shellcheck source=utils.sh
+source "$(dirname "$0")/utils.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -287,15 +290,7 @@ cleanup_target_cluster() {
 }
 
 # Check prerequisites
-if ! command -v oc &>/dev/null; then
-    log_error "oc command not found. Please install OpenShift CLI."
-    exit 1
-fi
-
-if ! command -v jq &>/dev/null; then
-    log_error "jq command not found. Please install jq."
-    exit 1
-fi
+require_cmds oc jq
 
 if ! oc whoami &>/dev/null; then
     log_error "Not connected to any cluster. Please set KUBECONFIG or login with 'oc login'."
