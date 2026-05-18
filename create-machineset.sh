@@ -2,6 +2,9 @@
 
 set -e
 
+# shellcheck source=utils.sh
+source "$(dirname "$0")/utils.sh"
+
 # Default values
 REGISTRATION_SERVER=""
 SOURCE_MACHINESET=""
@@ -57,6 +60,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Check prerequisites
+require_cmds oc jq yq base64
+
+if ! oc whoami &>/dev/null; then
+    echo "Error: not connected to any cluster. Please set KUBECONFIG or login with 'oc login'." >&2
+    exit 1
+fi
+
 
 # Validate required parameters
 if [[ -z "$REGISTRATION_SERVER" ]]; then

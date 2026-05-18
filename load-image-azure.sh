@@ -5,6 +5,9 @@
 # SPDX-License-Identifier: CC0-1.0
 set -xe
 
+# shellcheck source=utils.sh
+source "$(dirname "$0")/utils.sh"
+
 IMAGE=""
 USER=""
 LOCATION="eastus"
@@ -38,6 +41,9 @@ while getopts "i:u:l:f" opt; do
             ;;
     esac
 done
+
+# Check prerequisites
+require_cmds az jq
 
 if [ -z "$IMAGE" ]; then
     echo "Error: Image is required"
