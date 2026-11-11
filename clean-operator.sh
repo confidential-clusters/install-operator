@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 # shellcheck source=utils.sh
 source "$(dirname "$0")/utils.sh"
@@ -17,50 +17,21 @@ NAMESPACE="confidential-clusters"
 MARKETPLACE_NAMESPACE="openshift-marketplace"
 MACHINESET_NAMESPACE="openshift-machine-api"
 
-# Secrets
-IGNITION_SECRET="conf-ignition-secret"
-
-# Temporary files
-CONF_NODE_IGNITION="conf-node-ignition"
-
 # Operator resources
 SCC_NAME="confidential-clusters-trusted-cluster-scc"
 CATALOG_NAME="confidential-cluster-operator-dev-preview"
 
-# Target cluster resources
-MACHINE_CONFIG="99-worker-custom-image"
-
 usage() {
-    echo "Usage: $0 [--operator-cluster] [--target-cluster] [--all]"
-    echo ""
-    echo "This script supports two deployment scenarios:"
-    echo ""
-    echo "Scenario 1: Single cluster (operator and machinesets on same cluster)"
-    echo "  Use --all to clean everything"
-    echo ""
-    echo "Scenario 2: Two clusters (operator on cluster A, machinesets on cluster B)"
-    echo "  Use --operator-cluster on external cluster A (where operator is installed)"
-    echo "  Use --target-cluster on target cluster B (where machinesets are deployed)"
+    echo "Usage: $0 [--operator] [--machines] [--all] [-n|--namespace <namespace>]"
     echo ""
     echo "Options:"
-    echo "  --operator-cluster        Clean operator resources (routes, CRs, subscription, namespace, etc.)"
-    echo "  --target-cluster          Clean target cluster resources (machinesets, secrets, MachineConfig)"
-    echo "  --all                     Clean both operator and target resources (single cluster scenario)"
+    echo "  --operator                Clean operator resources (routes, CRs, subscription, namespace, etc.)"
+    echo "  --machines                Clean confidential machines for the selected operator namespace"
+    echo "  --all                     Clean both operator and confidential machines"
+    echo "  -n, --namespace <name>     Operator namespace (default: confidential-clusters)"
     echo "  -h, --help                Show this help message"
     echo ""
-    echo "Examples:"
-    echo ""
-    echo "  # Single cluster - clean everything:"
-    echo "  $0 --all"
-    echo ""
-    echo "  # Two clusters - clean operator from external cluster:"
-    echo "  export KUBECONFIG=/path/to/external-cluster-kubeconfig"
-    echo "  $0 --operator-cluster"
-    echo ""
-    echo "  # Two clusters - clean machinesets from target cluster:"
-    echo "  export KUBECONFIG=/path/to/target-cluster-kubeconfig"
-    echo "  $0 --target-cluster"
-    exit 1
+    exit "${1:-1}"
 }
 
 log_info() {
@@ -223,9 +194,9 @@ delete_machinesets() {
         oc delete machineset "$ms" -n $MACHINESET_NAMESPACE
         log_info "      Deleted machineset: $ms"
         # Delete the generated YAML file if it exists
-        if [ -f "${ms}.yaml" ]; then
-            rm -f "${ms}.yaml"
-            log_info "      Deleted generated file: ${ms}.yaml"
+        if [ -f "${MANIFEST_DIR}/machineset.yaml" ]; then
+            rm -f "${MANIFEST_DIR}/machineset.yaml"
+            log_info "      Deleted generated file: ${MANIFEST_DIR}/machineset.yaml"
         fi
     done
 }
@@ -247,14 +218,14 @@ delete_secret_with_file() {
     fi
 }
 
-cleanup_target_cluster() {
+cleanup_machines_cluster() {
     log_info "Starting cleanup of confidential resources from target cluster..."
     echo ""
 
     # Step 1: Find and scale down confidential machinesets
-    log_info "[1/4] Finding and scaling down confidential machinesets..."
+    log_info "[1/5] Finding and scaling down confidential machinesets..."
 
-    # Find all machinesets using conf-ignition-secret (confidential machinesets)
+    # Match the user-data Secret created by create-confidential-node.py.
     MACHINESETS_TO_DELETE=($(oc get machineset -n $MACHINESET_NAMESPACE -o json | \
         jq -r --arg secret "$IGNITION_SECRET" '.items[] | select(.spec.template.spec.providerSpec.value.userDataSecret.name == $secret) | .metadata.name'))
 
@@ -267,19 +238,32 @@ cleanup_target_cluster() {
     echo ""
 
     # Step 2: Delete machinesets
-    log_info "[2/4] Deleting confidential machinesets..."
+    log_info "[2/5] Deleting confidential machinesets..."
     delete_machinesets MACHINESETS_TO_DELETE
     echo ""
 
-    # Step 3: Delete ignition secret
-    log_info "[3/4] Deleting ignition secret..."
-    delete_secret_with_file "$IGNITION_SECRET" "$CONF_NODE_IGNITION"
+    # Step 3: Delete MachineConfigPool before its managed user-data Secret
+    log_info "[3/5] Deleting MachineConfigPool..."
+    if oc get machineconfigpool "$MACHINESET_NAME" &>/dev/null; then
+        oc delete machineconfigpool "$MACHINESET_NAME"
+        rm -f "$MANIFEST_DIR/machineconfigpool.yaml"
+        log_info "      Deleted MachineConfigPool: $MACHINESET_NAME"
+    else
+        log_warn "      MachineConfigPool $MACHINESET_NAME not found"
+    fi
     echo ""
 
-    # Step 4: Delete MachineConfig
-    log_info "[4/4] Deleting MachineConfig..."
+    # Step 4: Delete ignition secrets
+    log_info "[4/5] Deleting ignition secrets..."
+    delete_secret_with_file "$IGNITION_SECRET" "$CONF_NODE_IGNITION"
+    delete_secret_with_file "$MANAGED_SECRET" ""
+    echo ""
+
+    # Step 5: Delete MachineConfig
+    log_info "[5/5] Deleting MachineConfig..."
     if oc get machineconfig $MACHINE_CONFIG &>/dev/null; then
         oc delete machineconfig $MACHINE_CONFIG
+        rm -f "$MANIFEST_DIR/machineconfig.yaml"
         log_info "      Deleted MachineConfig: $MACHINE_CONFIG"
     else
         log_warn "      MachineConfig $MACHINE_CONFIG not found"
@@ -299,7 +283,7 @@ fi
 
 # Parse command line arguments
 CLEAN_OPERATOR=false
-CLEAN_TARGET=false
+CLEAN_MACHINES=false
 
 if [ $# -eq 0 ]; then
     usage
@@ -307,21 +291,29 @@ fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --operator-cluster)
+        --operator)
             CLEAN_OPERATOR=true
             shift
             ;;
-        --target-cluster)
-            CLEAN_TARGET=true
+        --machines)
+            CLEAN_MACHINES=true
             shift
             ;;
         --all)
             CLEAN_OPERATOR=true
-            CLEAN_TARGET=true
+            CLEAN_MACHINES=true
             shift
             ;;
+        -n|--namespace)
+            if [[ $# -lt 2 || ${#2} -gt 63 || ! "$2" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+                log_error "$1 requires a valid namespace."
+                exit 1
+            fi
+            NAMESPACE="$2"
+            shift 2
+            ;;
         -h|--help)
-            usage
+            usage 0
             ;;
         *)
             echo "Unknown option: $1"
@@ -331,10 +323,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate flags
-if [ "$CLEAN_OPERATOR" = false ] && [ "$CLEAN_TARGET" = false ]; then
-    log_error "Must specify at least one action: --operator-cluster, --target-cluster, or --all"
+if [ "$CLEAN_OPERATOR" = false ] && [ "$CLEAN_MACHINES" = false ]; then
+    log_error "Must specify at least one action: --operator, --machines, or --all"
     usage
 fi
+
+# Match create-confidential-node.py after parsing the operator namespace.
+MACHINESET_NAME="worker-cvm-${NAMESPACE}"
+MACHINE_CONFIG="99-${MACHINESET_NAME}"
+MANAGED_SECRET="${MACHINESET_NAME}-user-data-managed"
+IGNITION_SECRET="${MANAGED_SECRET}-cocl"
+MANIFEST_DIR="create-confidential-node-manifests/${NAMESPACE}"
+CONF_NODE_IGNITION="${MANIFEST_DIR}/user-data-secret.yaml"
 
 # Execute cleanup based on flags
 if [ "$CLEAN_OPERATOR" = true ]; then
@@ -342,8 +342,8 @@ if [ "$CLEAN_OPERATOR" = true ]; then
     echo ""
 fi
 
-if [ "$CLEAN_TARGET" = true ]; then
-    cleanup_target_cluster
+if [ "$CLEAN_MACHINES" = true ]; then
+    cleanup_machines_cluster
     echo ""
 fi
 
