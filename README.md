@@ -45,6 +45,8 @@ Pass the resulting location to the script with the `-l` flag, for example:
 
 ## Create a confidential MachineSet
 
+### Semi-automatic creation of confidential MachineSet
+
 First, you need to apply the MachineConfiguration to point to the custom image:
 ```console
 oc apply -f machine-config.yaml
@@ -67,7 +69,7 @@ The script will:
 - Configure ConfidentialVM security profile with Secure Boot and vTPM
 - Set replicas to 0 for safety
 
-### Usage
+#### Usage
 First, get the registration server URL from the external cluster where the operator is installed:
 ```console
 oc get route register-server -n confidential-clusters -o jsonpath='{.spec.host}'
@@ -97,6 +99,28 @@ N.B For the image specification, you need to provide the path but without the su
 The script will create and apply the MachineSet. Scale up when ready:
 ```console
 oc scale machineset <new-machineset-name> -n openshift-machine-api --replicas=1
+```
+
+### automatic creation of confidential MachineSet
+
+Requirements:
+
+- Logged into the cluster with `oc` or set `KUBECONFIG`.
+- Operator already installed in <operator-namespace>.
+- AZURE_RESOURCE_ID: Azure Compute Gallery image-version resource ID.
+- APPROVED_IMAGE: matching RHCOS container image.
+- --location and --zone: optional; must match an existing worker MachineSet and the location of the Azure Compute Gallery image.
+- --vm-size: optional; defaults to Standard_DC2as_v5.
+
+The script creates and applies a MachineConfig, MachineConfigPool, user-data Secret, and confidential MachineSet, then waits up to 15 minutes for one ready node.
+
+```bash
+AZURE_RESOURCE_ID="/resourceGroups/.../versions/0.1.0" \
+APPROVED_IMAGE="quay.io/.../rhcos-confidential@sha256:..." \
+python3 tests/create-confidential-node.py <operator-namespace> \
+  --location eastus \
+  --zone 2 \
+  --vm-size Standard_DC4ads_v5
 ```
 
 ## Cleanup
