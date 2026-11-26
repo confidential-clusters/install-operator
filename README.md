@@ -1,15 +1,17 @@
 # Deployment of the Confidential Cluster Operator
 
-This repository contains the helper scripts to install, deploy and test the Confidential Cluster Operator development release.
+This repository contains the helper scripts to install, deploy and test the Confidential Cluster Operator.
 
-The installation happens on 2 clusters, the first one where the operator is deployed and the second one is the target cluster where we want to create confidential nodes.
+> **Dev preview:** For followers of the older developer preview release, a dedicated `developer-preview` branch is available in this repository.
 
-## Installation of the operator on the external cluster
-The `install-operator.sh` script sets up the Confidential Cluster Operator on an external cluster by first creating the catalog source in the OpenShift marketplace and then deploying the operator along with its required namespace and security context constraints. 
+The operator and confidential node are deployed on the same OpenShift cluster.
+
+## Installation of the operator
+The `install-operator.sh` script sets up the Confidential Cluster Operator on a cluster by first creating the catalog source in the OpenShift marketplace and then deploying the operator along with its required namespace and security context constraints.
 
 After waiting for the operator deployment to become available, the script applies the custom resource configuration with the cluster's ingress domain.
 
-Finally, it applies the approved image configuration and exposes the Key Broker Service and registration server as OpenShift routes, making them accessible for confidential node registration from the target cluster.
+Finally, it applies the approved image configuration and exposes the Key Broker Service and registration server as OpenShift routes for confidential node registration.
 ```console
 ./install-operator.sh
 ```
@@ -45,91 +47,41 @@ Pass the resulting location to the script with the `-l` flag, for example:
 
 ## Create a confidential MachineSet
 
-First, you need to apply the MachineConfiguration to point to the custom image:
-```console
-oc apply -f machine-config.yaml
-```
+Use `create-confidential-node.py` to generate and apply the required manifests.
 
-Afterwards, we can create a machine set for confidential nodes using the script `create-machineset.sh`.
+Requirements:
 
-This script creates a confidential computing MachineSet by:
-1. Creating an ignition secret with the registration server URL
-2. Converting an existing MachineSet to confidential computing configuration
-3. Applying the new MachineSet
+- Python 3 with PyYAML installed (`python3 -m pip install PyYAML`).
+- Logged into the cluster with `oc` or set `KUBECONFIG`.
+- Operator already installed in <operator-namespace>.
+- `AZURE_GALLERY_IMAGE`: Azure Compute Gallery image-version resource ID.
+- `BOOTC_IMAGE`: matching bootc container image.
+- --location and --zone: optional; must match an existing worker MachineSet and the location of the Azure Compute Gallery image.
+- --vm-size: optional; defaults to Standard_DC2as_v5.
 
-The script will:
-- Create `conf-ignition-secret` with the registration server URL
-- Disable accelerated networking (not supported on DC-series VMs)
-- Replace the image with the provided confidential VM-compatible image
-- Set VM size to a confidential computing compatible size (default: Standard_DC4ads_v5)
-- Set userDataSecret to `conf-ignition-secret`
-- Add securityEncryptionType: VMGuestStateOnly to the managed disk
-- Configure ConfidentialVM security profile with Secure Boot and vTPM
-- Set replicas to 0 for safety
+The script creates and applies a MachineConfig, MachineConfigPool, user-data Secret, and confidential MachineSet, then waits up to 15 minutes for one ready node.
 
-### Usage
-First, get the registration server URL from the external cluster where the operator is installed:
-```console
-oc get route register-server -n confidential-clusters -o jsonpath='{.spec.host}'
-```
-
-Then create the confidential MachineSet on the target cluster:
-```console
-./create-machineset.sh \
-  --registration-server <registration-server-url> \
-  --source <existing-machineset-name> \
-  --new-name <new-machineset-name> \
-  --image <image-resource-id> \
-  [--vm-size <vm-size>]
-```
-
-Example:
-```console
-./create-machineset.sh \
-  --registration-server register-server-confidential-clusters.apps.ci-ln-2br1qk2-1d09d.ci2.azure.devcluster.openshift.com \
-  --source afrosi-test-h96rn-worker-germanywestcentral1 \
-  --new-name machinset-conf-nodes \
-  --image /resourceGroups/afrosi_group/providers/Microsoft.Compute/galleries/afrosi_gallery/images/rhcos-9.6.20260309-0-azure.x86_64/versions/0.1.0
-```
-
-N.B For the image specification, you need to provide the path but without the subscription, this will be prefixed by the machinset automatically.
-
-The script will create and apply the MachineSet. Scale up when ready:
-```console
-oc scale machineset <new-machineset-name> -n openshift-machine-api --replicas=1
+```bash
+AZURE_GALLERY_IMAGE="/resourceGroups/.../versions/0.1.0" \
+BOOTC_IMAGE="quay.io/.../rhcos-confidential@sha256:..." \
+python3 create-confidential-node.py <operator-namespace> \
+  --location eastus \
+  --zone 2 \
+  --vm-size Standard_DC4ads_v5
 ```
 
 ## Cleanup
 
-Use the `clean-operator.sh` script to clean up resources from both clusters.
+Use `clean-operator.sh` on the cluster containing both the operator and confidential node:
 
-### Clean up operator from external cluster
-
-Switch to the external cluster where the operator is installed:
 ```console
-export KUBECONFIG=/path/to/external-cluster-kubeconfig
-./clean-operator.sh --operator-cluster
+./clean-operator.sh --all
 ```
 
-This removes:
-- Routes (kbs-service, register-server)
-- Custom resources (ApprovedImage, TrustedExecutionCluster)
-- Subscription and CSV
-- OperatorGroup
-- SecurityContextConstraints
-- Namespace and CatalogSource
+The operator namespace defaults to `confidential-clusters`. To use another namespace:
 
-### Clean up machinesets from target cluster
-
-Switch to the target cluster where machinesets are deployed:
 ```console
-export KUBECONFIG=/path/to/target-cluster-kubeconfig
-./clean-operator.sh --target-cluster
+./clean-operator.sh --all --namespace roy-test-a0b76bf1
 ```
 
-This removes:
-- Confidential machinesets (scale down and delete)
-- Secret (`conf-ignition-secret`)
-- MachineConfig (`99-worker-custom-image`)
-- Temporary files
-
+Use `--machines` to remove only the confidential MachineSet, MachineConfigPool, MachineConfig, user-data Secrets, and generated files for the selected operator namespace. Use `--operator` to remove only the operator. With `--all`, operator cleanup runs before machine cleanup, using the same cluster context.
